@@ -1,6 +1,5 @@
 from kafka import KafkaConsumer, KafkaProducer
 import json
-from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Initialize Kafka Consumer & Producer
@@ -34,7 +33,7 @@ def analyze_sentiment(text):
 for message in consumer:
     tweet = message.value
     sentiment = analyze_sentiment(tweet["text"])
-    
+
     # Add sentiment classification to data
     tweet["sentiment"] = sentiment
     print(f"Processed: {tweet}")

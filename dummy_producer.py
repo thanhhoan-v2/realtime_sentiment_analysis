@@ -1,11 +1,10 @@
-from flair.models import TextClassifier
-from flair.data import Sentence
 import re
 import time
 from kafka import KafkaProducer
 import json
 from datetime import datetime
 import random
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Initialize Kafka producer
 producer = KafkaProducer(
@@ -73,30 +72,36 @@ def clean_text(input_text):
 
     return processed_text
 
-# Load sentiment classifier
-classifier = TextClassifier.load('en-sentiment')
+# Initialize VADER sentiment analyzer
+analyzer = SentimentIntensityAnalyzer()
 
 # Function to analyze sentiment of a tweet
 def analyze_tweet_sentiment(text):
-    # Create a Sentence object from the input text
-    tweet_sentence = Sentence(text)
-    # Use the classifier to predict sentiment
-    classifier.predict(tweet_sentence)
-    # Ensure there is a label before extracting it
-    if tweet_sentence.labels:
-        sentiment_label = tweet_sentence.labels[0].value  # 'POSITIVE' or 'NEGATIVE'
-        confidence = tweet_sentence.labels[0].score * 100  # Convert confidence to percentage
-        return sentiment_label, confidence
+    # Use VADER to analyze sentiment
+    scores = analyzer.polarity_scores(text)
+    compound_score = scores["compound"]
+
+    # Determine sentiment based on compound score
+    if compound_score >= 0.05:
+        sentiment_label = "POSITIVE"
+    elif compound_score <= -0.05:
+        sentiment_label = "NEGATIVE"
     else:
-        return "NEUTRAL", 50.0  # Handle cases where no sentiment is detected
+        sentiment_label = "NEUTRAL"
+
+    # Calculate confidence (normalize compound score to a percentage)
+    # Convert the absolute compound score to a confidence percentage between 50-95%
+    confidence = 50.0 + (abs(compound_score) * 45.0)
+
+    return sentiment_label, confidence
 
 def generate_dummy_tweet():
     # Select a random topic
     topic = random.choice(SEARCH_TOPICS)
-    
+
     # Determine sentiment type with equal probability
     sentiment_type = random.choice(["positive", "negative", "neutral"])
-    
+
     # Select a random tweet template based on sentiment
     if sentiment_type == "positive":
         tweet_template = random.choice(POSITIVE_TWEETS)
@@ -110,14 +115,14 @@ def generate_dummy_tweet():
         tweet_template = random.choice(NEUTRAL_TWEETS)
         expected_sentiment = "NEUTRAL"
         confidence_base = 50.0
-    
+
     # Fill in the topic
     tweet = tweet_template.format(topic=topic)
-    
+
     # Add some randomness to confidence
     confidence = confidence_base + random.uniform(-10.0, 10.0)
     confidence = min(max(confidence, 40.0), 95.0)  # Keep within reasonable bounds
-    
+
     return tweet, expected_sentiment, confidence, topic
 
 # Main loop to generate and send tweets
@@ -127,16 +132,16 @@ def main():
         while True:
             # Generate a dummy tweet
             tweet, expected_sentiment, confidence, topic = generate_dummy_tweet()
-            
+
             # Clean the tweet
             cleaned_tweet = clean_text(tweet)
-            
+
             # For realism, sometimes use the classifier instead of predetermined sentiment
             if random.random() < 0.3:  # 30% chance to use the classifier
                 sentiment, confidence = analyze_tweet_sentiment(cleaned_tweet)
             else:
                 sentiment = expected_sentiment
-            
+
             # Prepare data for Kafka
             data = {
                 'tweet': tweet,
@@ -145,18 +150,18 @@ def main():
                 'confidence': confidence,
                 'timestamp': datetime.utcnow().isoformat()
             }
-            
+
             # Send to Kafka
             producer.send('sentiment_analysis', value=data)
-            
+
             # Print for debugging
             print(f"Topic: {topic}")
             print(f"Tweet: {tweet}")
             print(f"Sentiment: {sentiment} ({confidence:.2f}%)\n")
-            
+
             # Sleep to avoid flooding
             time.sleep(random.uniform(0.5, 2.0))
-    
+
     except KeyboardInterrupt:
         print("Stopping producer...")
     except Exception as e:
