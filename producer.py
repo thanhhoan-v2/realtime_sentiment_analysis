@@ -1,10 +1,11 @@
+from flair.models import TextClassifier
+from flair.data import Sentence
 import tweepy
 import re
 import time
 from kafka import KafkaProducer
 import json
 from datetime import datetime
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Set up X API credentials
 access_token = "1900207915161808896-J8fRt3i0mufOQfLzwjhZOP1tJmhuT7"
@@ -56,28 +57,22 @@ def clean_text(input_text):
 
     return processed_text
 
-# Initialize VADER sentiment analyzer
-analyzer = SentimentIntensityAnalyzer()
+# Load sentiment classifier
+classifier = TextClassifier.load('en-sentiment')
 
 # Function to analyze sentiment of a tweet
 def analyze_tweet_sentiment(text):
-    # Use VADER to analyze sentiment
-    scores = analyzer.polarity_scores(text)
-    compound_score = scores["compound"]
-
-    # Determine sentiment based on compound score
-    if compound_score >= 0.05:
-        sentiment_label = "POSITIVE"
-    elif compound_score <= -0.05:
-        sentiment_label = "NEGATIVE"
+    # Create a Sentence object from the input text
+    tweet_sentence = Sentence(text)
+    # Use the classifier to predict sentiment
+    classifier.predict(tweet_sentence)
+    # Ensure there is a label before extracting it
+    if tweet_sentence.labels:
+        sentiment_label = tweet_sentence.labels[0].value  # 'POSITIVE' or 'NEGATIVE'
+        confidence = tweet_sentence.labels[0].score * 100  # Convert confidence to percentage
+        return sentiment_label, confidence
     else:
-        sentiment_label = "NEUTRAL"
-
-    # Calculate confidence (normalize compound score to a percentage)
-    # Convert the absolute compound score to a confidence percentage between 50-95%
-    confidence = 50.0 + (abs(compound_score) * 45.0)
-
-    return sentiment_label, confidence
+        return "UNKNOWN", 0.0  # Handle cases where no sentiment is detected
 
 def get_tweets():
     tweets = None

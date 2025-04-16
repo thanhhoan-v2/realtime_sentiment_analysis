@@ -19,7 +19,7 @@ def style_dataframe(df):
         display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
     # Reorder columns for better display
-    cols = ['timestamp', 'tweet', 'topic', 'sentiment', 'confidence']
+    cols = ['timestamp', 'tweet', 'cleaned_tweet', 'topic', 'sentiment', 'confidence']
     display_cols = [col for col in cols if col in display_df.columns]
     display_df = display_df[display_cols]
 
@@ -27,6 +27,7 @@ def style_dataframe(df):
     display_df = display_df.rename(columns={
         'timestamp': 'Time',
         'tweet': 'Tweet',
+        'cleaned_tweet': 'Cleaned Text',
         'topic': 'Topic',
         'sentiment': 'Sentiment',
         'confidence': 'Confidence (%)'
@@ -65,7 +66,7 @@ def consume_messages():
             </h2>""", unsafe_allow_html=True)
 
             if not st.session_state.df.empty:
-                col1, col2, col3, col4, col5 = st.columns(5)
+                col1, col2, col3, col4 = st.columns(4)
 
                 total_tweets = len(st.session_state.df)
                 col1.metric(
@@ -90,16 +91,8 @@ def consume_messages():
                     delta=None
                 )
 
-                neutral_count = len(st.session_state.df[st.session_state.df['sentiment'] == 'NEUTRAL'])
-                neutral_pct = (neutral_count / total_tweets * 100) if total_tweets > 0 else 0
-                col4.metric(
-                    label="Neutral Sentiment",
-                    value=f"{neutral_pct:.1f}%",
-                    delta=None
-                )
-
                 avg_confidence = st.session_state.df['confidence'].mean() if 'confidence' in st.session_state.df.columns else 0
-                col5.metric(
+                col4.metric(
                     label="Avg Confidence",
                     value=f"{avg_confidence:.1f}%",
                     delta=None
@@ -117,7 +110,14 @@ def consume_messages():
                 else:
                     return 'background-color: #ffca3a; color: black'
 
+            def style_cleaned_text(val):
+                return 'font-style: italic; color: #666666; font-size: 90%'
+
             styled_df = display_df.style.applymap(highlight_sentiment, subset=['Sentiment'])
+
+            # Apply additional styling if column exists
+            if 'Cleaned Text' in display_df.columns:
+                styled_df = styled_df.applymap(style_cleaned_text, subset=['Cleaned Text'])
             st.dataframe(styled_df, height=400, use_container_width=True)
 
             # Add sentiment distribution donut chart

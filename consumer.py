@@ -1,5 +1,6 @@
 from kafka import KafkaConsumer, KafkaProducer
 import json
+from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Initialize Kafka Consumer & Producer
