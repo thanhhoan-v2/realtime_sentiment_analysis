@@ -65,13 +65,13 @@ def consume_messages():
             </h2>""", unsafe_allow_html=True)
 
             if not st.session_state.df.empty:
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4, col5 = st.columns(5)
 
                 total_tweets = len(st.session_state.df)
                 col1.metric(
                     label="Total Tweets",
                     value=f"{total_tweets}",
-                    delta=f"+{min(20, total_tweets)}"
+                    delta=None
                 )
 
                 positive_count = len(st.session_state.df[st.session_state.df['sentiment'] == 'POSITIVE'])
@@ -90,8 +90,16 @@ def consume_messages():
                     delta=None
                 )
 
-                avg_confidence = st.session_state.df['confidence'].mean() if 'confidence' in st.session_state.df.columns else 0
+                neutral_count = len(st.session_state.df[st.session_state.df['sentiment'] == 'NEUTRAL'])
+                neutral_pct = (neutral_count / total_tweets * 100) if total_tweets > 0 else 0
                 col4.metric(
+                    label="Neutral Sentiment",
+                    value=f"{neutral_pct:.1f}%",
+                    delta=None
+                )
+
+                avg_confidence = st.session_state.df['confidence'].mean() if 'confidence' in st.session_state.df.columns else 0
+                col5.metric(
                     label="Avg Confidence",
                     value=f"{avg_confidence:.1f}%",
                     delta=None
